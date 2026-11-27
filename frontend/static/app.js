@@ -802,19 +802,26 @@
       const res = await apiFetch("/api/admin/sync/status");
       const data = await res.json();
       const prog = data.progress || {};
+      const lr = data.last_result || null;
+      const phaseTxt = prog.phase || prog.stage || "";
+      const summaryTxt = lr ? `${lr.total_docs ?? 0}권 · ${lr.total_pages ?? 0}p · OCR ${lr.ocr_pages ?? 0}p (${lr.elapsed_sec ?? "-"}s)` : "";
       box.innerHTML = `
         <div><strong>상태:</strong> ${escapeHtml(data.state || "unknown")} (주기: ${escapeHtml(data.interval_min)}분)</div>
         <div><strong>최근 확인(KST):</strong> ${escapeHtml(data.last_checked_kst || "-")}</div>
         <div><strong>최근 반영(KST):</strong> ${escapeHtml(data.last_updated_kst || "-")}</div>
         <div><strong>사유:</strong> ${escapeHtml(data.last_reason || "-")}</div>
-        ${prog.stage ? `<div><strong>진행:</strong> ${escapeHtml(prog.stage)} ${escapeHtml(prog.detail || "")}</div>` : ""}
+        ${summaryTxt ? `<div><strong>최근 결과:</strong> ${escapeHtml(summaryTxt)}</div>` : ""}
+        ${phaseTxt ? `<div><strong>진행:</strong> ${escapeHtml(phaseTxt)} ${escapeHtml(prog.detail || "")}</div>` : ""}
         ${data.last_error ? `<div style="color:var(--danger)"><strong>오류:</strong> ${escapeHtml(data.last_error)}</div>` : ""}
       `;
-      if (data.state === "running") {
+      if (data.state && !["idle", "error", "unknown"].includes(data.state)) {
         clearTimeout(state.syncPollTimer);
         state.syncPollTimer = setTimeout(loadSyncStatus, 2500);
       } else {
         clearTimeout(state.syncPollTimer);
+        if (lr && lr.status === "updated") {
+          loadMetaAndDocs().then(() => runSearch(state.page)).catch(() => null);
+        }
       }
     } catch (err) {
       box.textContent = "동기화 워커 상태를 조회할 수 없습니다.";
