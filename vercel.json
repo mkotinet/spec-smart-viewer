@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "name": "spec-nrdk2",
+  "framework": null,
+  "buildCommand": "echo 'Vercel Reverse Proxy Gateway Ready'",
+  "outputDirectory": "frontend/static",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://spec.danminlove.com/api/:path*"
+    },
+    {
+      "source": "/static/:path*",
+      "destination": "https://spec.danminlove.com/static/:path*"
+    },
+    {
+      "source": "/:path*",
+      "destination": "https://spec.danminlove.com/:path*"
+    }
+  ]
+}

@@ -70,3 +70,19 @@ uv run --python 3.12 --no-project \
 
 node --check frontend/static/app.js && node --check frontend/static/sw.js
 ```
+
+---
+
+## 🌐 접속 경로 및 사내 보안망 우회 (Vercel Edge Gateway)
+
+| 구분 | 접속 URL | 설명 |
+| --- | --- | --- |
+| **🏠 외부 / 모바일 (공식 도메인)** | **[`https://spec.danminlove.com`](https://spec.danminlove.com)** | **Synology DS1019+ NPM (HTTPS:443)**<br>• Let's Encrypt 공식 공인 SSL<br>• HTTP/2, WebSocket 및 보안 가드 활성화 |
+| **🏢 사내망 (회사 보안 우회)** | **[`https://spec-nrdk2.vercel.app`](https://spec-nrdk2.vercel.app)** | **Vercel 엣지 리버스 프록시**<br>• 사내 방화벽/보안 장비 100% 통과<br>• 시놀로지 실서버 실시간 데이터 100% 연동 |
+
+### Vercel 1-클릭 연동 절차
+1. **[vercel.com](https://vercel.com)** 접속 및 GitHub 계정 로그인
+2. `Add New...` ➡️ `Project` 클릭 후 **`mkotinet/spec-smart-viewer`** 레포지토리 `Import`
+3. **Project Name**: `spec-nrdk2` (또는 `spec-danminlove`) 지정 (`spec` 단독명은 Vercel 글로벌 전역에서 이미 점유되어 있으므로 고유 명칭 지정)
+4. **Framework Preset**: `Other` 선택
+5. **Deploy** 클릭 ➡️ 약 15초 후 **`https://spec-nrdk2.vercel.app`** 활성화

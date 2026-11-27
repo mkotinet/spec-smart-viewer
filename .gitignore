@@ -19,3 +19,5 @@ graphify-out/
 .DS_Store
 desktop.ini
 !frontend/static/icons/*.png
+.vercel
+.vercel_python_packages
