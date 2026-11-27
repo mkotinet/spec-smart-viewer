@@ -3,7 +3,7 @@
   "name": "spec-nrdk2",
   "framework": null,
   "buildCommand": "echo 'Vercel Reverse Proxy Gateway Ready'",
-  "outputDirectory": "frontend/static",
+  "outputDirectory": "frontend",
   "headers": [
     {
       "source": "/(.*)",
@@ -25,16 +25,16 @@
   ],
   "rewrites": [
     {
+      "source": "/manifest.json",
+      "destination": "/static/manifest.json"
+    },
+    {
+      "source": "/sw.js",
+      "destination": "/static/sw.js"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://spec.danminlove.com/api/:path*"
-    },
-    {
-      "source": "/static/:path*",
-      "destination": "https://spec.danminlove.com/static/:path*"
-    },
-    {
-      "source": "/:path*",
-      "destination": "https://spec.danminlove.com/:path*"
     }
   ]
 }
