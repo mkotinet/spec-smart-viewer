@@ -1,0 +1,17 @@
+raw_specs/
+data/
+worker_state/
+dist/
+.git/
+.venv/
+.env
+tests/
+**/__pycache__/
+graphify-out/
+*.pdf
+*.PDF
+*.webp
+*.db
+*.db-wal
+*.db-shm
+*.tar.gz

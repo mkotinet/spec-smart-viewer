@@ -1,0 +1,5 @@
+pypdfium2==5.15.2
+pillow==11.3.0
+pypdf==6.21.4
+rapidocr==3.10.0
+onnxruntime==1.19.2

@@ -1,0 +1,36 @@
+FROM python:3.12-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONIOENCODING=utf-8 \
+    TZ=Asia/Seoul \
+    DEBIAN_FRONTEND=noninteractive \
+    DATA_DIR=/app/data \
+    WORKER_STATE_DIR=/app/worker_state \
+    WORKER_PORT=8099
+
+WORKDIR /app
+
+COPY requirements-worker.txt /app/
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates tzdata rclone libgomp1 libglib2.0-0 \
+ && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip install --no-cache-dir -r /app/requirements-worker.txt
+
+COPY backend/ /app/backend/
+COPY scripts/ /app/scripts/
+COPY worker/ /app/worker/
+
+RUN python -m scripts.ocr_engine --warmup \
+ && mkdir -p /app/data /app/worker_state \
+ && useradd --create-home --uid 1000 appuser \
+ && chown -R appuser:appuser /app
+
+USER appuser
+EXPOSE 8099
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -sf http://localhost:8099/healthz || exit 1
+
+CMD ["python", "-u", "worker/sync_worker.py"]

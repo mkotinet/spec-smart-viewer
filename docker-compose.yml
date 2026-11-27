@@ -1,0 +1,73 @@
+services:
+  spec-smart-viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: spec-smart-viewer:latest
+    container_name: ${CONTAINER_NAME:-spec-smart-viewer}
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-3096}:8000"
+    mem_limit: 256m
+    memswap_limit: 512m
+    cpu_shares: 512
+    oom_score_adj: 500
+    environment:
+      - TZ=Asia/Seoul
+      - DATA_DIR=/app/data
+      - PORT=8000
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SYNC_TOKEN=${SYNC_TOKEN}
+      - SYNC_WORKER_URL=${SYNC_WORKER_URL:-http://spec-sync-worker:8099}
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
+    volumes:
+      - spec_viewer_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  spec-sync-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    image: spec-sync-worker:latest
+    container_name: ${WORKER_CONTAINER_NAME:-spec-sync-worker}
+    restart: unless-stopped
+    mem_limit: 768m
+    memswap_limit: 1536m
+    cpu_shares: 256
+    oom_score_adj: 700
+    environment:
+      - TZ=Asia/Seoul
+      - DATA_DIR=/app/data
+      - WORKER_STATE_DIR=/app/worker_state
+      - GDRIVE_REMOTE_PATH=${GDRIVE_REMOTE_PATH}
+      - GDRIVE_ROOT_FOLDER_ID=${GDRIVE_ROOT_FOLDER_ID:-}
+      - RCLONE_CONF_B64=${RCLONE_CONF_B64}
+      - PROJECT_NAME=${PROJECT_NAME:-NRD-K2 제어(설비) 시방서}
+      - SYNC_INTERVAL_MIN=${SYNC_INTERVAL_MIN:-15}
+      - ENABLE_OCR=${ENABLE_OCR:-true}
+      - RCLONE_MAX_DELETE=${RCLONE_MAX_DELETE:-20}
+      - MAX_DELETE_RATIO=${MAX_DELETE_RATIO:-0.30}
+      - SYNC_TOKEN=${SYNC_TOKEN}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-}
+      - VIEWER_PUBLIC_URL=${VIEWER_PUBLIC_URL:-}
+    volumes:
+      - spec_viewer_data:/app/data
+      - spec_worker_cache:/app/worker_state
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8099/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  spec_viewer_data:
+    name: spec_viewer_data
+  spec_worker_cache:
+    name: spec_worker_cache

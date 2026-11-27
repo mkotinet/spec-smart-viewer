@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>시방서 스마트 뷰어 · NRD-K2</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="/static/style.css?v=1.0.0">
+</head>
+<body data-theme="dark">
+  <!-- 상단 통합 검색 및 제어 바 -->
+  <header class="topbar" id="topbar">
+    <div class="topbar-row topbar-brand-row">
+      <div class="brand-group">
+        <span class="brand-badge">SPEC</span>
+        <div class="brand-titles">
+          <h1 class="brand-title">시방서 스마트 뷰어</h1>
+          <span class="brand-sub" id="metaBadge">NRD-K2 제어(설비) · 인덱스 확인 중…</span>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="mode-switch" role="group" aria-label="화면 보기 모드">
+          <button type="button" class="btn-pill active" id="btnModeGrid">전체 장표</button>
+          <button type="button" class="btn-pill" id="btnModeDetail">정밀 뷰어</button>
+        </div>
+        <button type="button" class="btn-icon" id="btnInstallPwa" title="앱 설치 안내">앱 설치</button>
+        <button type="button" class="btn-icon" id="btnWhatsNew" title="버전 및 새 기능">v1.0.0</button>
+        <button type="button" class="btn-icon" id="btnTheme" title="테마 전환" aria-label="테마 전환">테마</button>
+        <button type="button" class="btn-icon hidden" id="btnAdminMenu">관리</button>
+        <span class="user-pill hidden" id="userBadge"></span>
+        <button type="button" class="btn-ghost hidden" id="btnLogout">로그아웃</button>
+      </div>
+    </div>
+
+    <div class="topbar-row search-row">
+      <form class="search-form" id="searchForm">
+        <div class="search-input-wrap">
+          <input
+            type="search"
+            id="searchInput"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="다중 키워드 검색: 예) 차압 보온, (엘보 | Elbow) Fitting, 케이블 -트레이, &quot;최소 100 mm&quot;"
+            aria-label="시방서 다중 키워드 검색어"
+          >
+          <button type="button" class="btn-clear hidden" id="btnClearSearch" title="검색어 초기화" aria-label="검색어 초기화">×</button>
+        </div>
+        <button type="submit" class="btn-primary" id="btnSearch">검색</button>
+      </form>
+
+      <div class="search-options">
+        <select id="scopeSelect" class="select-compact" aria-label="검색 조합 범위">
+          <option value="page">장표 내 조합</option>
+          <option value="doc">시방서 전체 교차</option>
+        </select>
+        <select id="pageTypeSelect" class="select-compact" aria-label="장표 성격 필터">
+          <option value="">모든 장표</option>
+          <option value="body">본문 조항</option>
+          <option value="diagram">도해·도면</option>
+          <option value="toc">목차</option>
+          <option value="history">제/개정 이력</option>
+          <option value="appendix">부속서</option>
+          <option value="cover">표지</option>
+        </select>
+        <button type="button" class="btn-toggle" id="btnBodyOnly" aria-pressed="false">본문만</button>
+        <button type="button" class="btn-toggle" id="btnFavOnly" aria-pressed="false">★ 즐겨찾기만</button>
+      </div>
+    </div>
+
+    <!-- 시각적 다중 키워드 조합 칩 빌더 + 시방서 필터 -->
+    <div class="topbar-row builder-row">
+      <div class="kw-builder" id="kwBuilder">
+        <input
+          type="text"
+          id="kwQuickInput"
+          class="kw-quick-input"
+          autocomplete="off"
+          placeholder="키워드 추가 후 연산 선택…"
+          aria-label="조합 키워드 입력"
+        >
+        <button type="button" class="btn-chip-add op-and" data-op="and" title="공백 AND 추가">+ 필수(AND)</button>
+        <button type="button" class="btn-chip-add op-or" data-op="or" title="파이프(|) OR 추가">+ 선택(OR)</button>
+        <button type="button" class="btn-chip-add op-not" data-op="not" title="마이너스(-) 제외 추가">+ 제외(-)</button>
+        <button type="button" class="btn-chip-add op-phrase" data-op="phrase" title="큰따옴표 정확 구문 추가">+ 구문(" ")</button>
+        <div class="kw-chips-list" id="kwChipsList"></div>
+      </div>
+    </div>
+
+    <div class="topbar-row docs-filter-row">
+      <div class="doc-chips" id="docChips" aria-label="시방서 권별 필터"></div>
+    </div>
+  </header>
+
+  <!-- 메인 작업 영역 -->
+  <main class="app-main" id="appMain">
+    <!-- 냉부팅 / 초기 동기화 알림 배너 -->
+    <div class="sync-banner hidden" id="syncBanner">
+      <span>아직 시방서 인덱스가 생성되지 않았습니다. 워커가 Google Drive 시방서를 자동 수집 중이거나 관리자 동기화가 필요합니다.</span>
+      <button type="button" class="btn-small" id="btnBannerRefresh">새로고침</button>
+    </div>
+
+    <!-- 모드 1: 전체 장표 그리드 -->
+    <section class="grid-view" id="gridView" aria-label="전체 장표 검색 그리드">
+      <div class="grid-header">
+        <div class="grid-summary" id="gridSummary">장표를 불러오는 중…</div>
+        <div class="grid-pager">
+          <button type="button" class="btn-small" id="btnGridPrev">◀ 이전</button>
+          <span class="pager-text" id="gridPageInfo">1 / 1</span>
+          <button type="button" class="btn-small" id="btnGridNext">다음 ▶</button>
+        </div>
+      </div>
+      <div class="page-grid" id="pageGrid"></div>
+    </section>
+
+    <!-- 모드 2: 정밀 장표 뷰어 (사이드바 + 확대/팬 캔버스 + 원문 텍스트) -->
+    <section class="detail-view hidden" id="detailView" aria-label="정밀 장표 뷰어">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-tabs" role="tablist">
+          <button type="button" class="side-tab active" data-tab="results" role="tab">
+            검색결과 <span class="tab-count" id="resCount">0</span>
+          </button>
+          <button type="button" class="side-tab" data-tab="toc" role="tab">목차(TOC)</button>
+          <button type="button" class="side-tab" data-tab="favs" role="tab">
+            즐겨찾기 <span class="tab-count" id="favCount">0</span>
+          </button>
+        </div>
+
+        <div class="side-panel" id="tabResults">
+          <div class="side-list" id="resultsList"></div>
+          <div class="side-pager">
+            <button type="button" class="btn-small" id="btnSidePrev">◀</button>
+            <span class="pager-text" id="sidePageInfo">1 / 1</span>
+            <button type="button" class="btn-small" id="btnSideNext">▶</button>
+          </div>
+        </div>
+
+        <div class="side-panel hidden" id="tabToc">
+          <div class="toc-doc-head" id="tocDocHead">문서 목차</div>
+          <div class="toc-tree" id="tocTree"></div>
+        </div>
+
+        <div class="side-panel hidden" id="tabFavs">
+          <div class="side-list" id="favsList"></div>
+        </div>
+      </aside>
+
+      <div class="viewer-stage" id="viewerStage">
+        <div class="stage-toolbar">
+          <div class="stage-title-group">
+            <button type="button" class="btn-small mobile-only" id="btnMobileBack">← 목록</button>
+            <div class="stage-title" id="pageTitleHeader">장표를 선택하세요</div>
+          </div>
+
+          <div class="stage-controls">
+            <button type="button" class="btn-small" id="btnPrevPage" title="이전 페이지">◀ 이전장</button>
+            <button type="button" class="btn-small" id="btnNextPage" title="다음 페이지">다음장 ▶</button>
+            <span class="sep"></span>
+            <button type="button" class="btn-small" id="btnZoomFit" title="화면에 맞추기">맞춤</button>
+            <button type="button" class="btn-small" id="btnZoom100" title="원본 100%">100%</button>
+            <button type="button" class="btn-small" id="btnZoomOut" aria-label="축소">-</button>
+            <span class="zoom-label" id="zoomLabel">100%</span>
+            <button type="button" class="btn-small" id="btnZoomIn" aria-label="확대">+</button>
+            <span class="sep"></span>
+            <button type="button" class="btn-toggle active" id="btnToggleBoxes" aria-pressed="true">하이라이트</button>
+            <button type="button" class="btn-small hidden" id="btnNextBox" title="다음 매칭 위치 이동">매칭 0/0</button>
+            <button type="button" class="btn-toggle active" id="btnToggleText" aria-pressed="true">원문텍스트</button>
+            <button type="button" class="btn-toggle" id="btnPinMode" aria-pressed="false">+ 핀메모</button>
+            <button type="button" class="btn-toggle" id="btnFavToggle" aria-pressed="false">☆ 즐겨찾기</button>
+            <a class="btn-small btn-link hidden" id="btnOpenPdf" target="_blank" rel="noopener">단일 PDF</a>
+          </div>
+        </div>
+
+        <div class="stage-split" id="stageSplit">
+          <div class="canvas-viewport" id="canvasViewport">
+            <div class="canvas-transform" id="canvasTransform">
+              <img id="previewImg" alt="시방서 장표 고해상도 이미지" draggable="false">
+              <div class="overlay-boxes" id="overlayBoxes"></div>
+              <div class="overlay-pins" id="overlayPins"></div>
+            </div>
+            <div class="empty-stage" id="emptyState">
+              <p>왼쪽 목록이나 전체 장표 그리드에서 페이지를 선택하면 고해상도 장표와 추출 텍스트를 확인할 수 있습니다.</p>
+            </div>
+          </div>
+
+          <aside class="text-inspector" id="textInspector">
+            <div class="text-head">
+              <div class="text-head-title">
+                <strong>정제 원문 텍스트</strong>
+                <span class="badge-ocr hidden" id="ocrStatusBadge">OCR</span>
+              </div>
+              <div class="text-head-actions">
+                <button type="button" class="btn-small" id="btnCopyText">복사</button>
+                <button type="button" class="btn-small" id="btnCloseText">닫기</button>
+              </div>
+            </div>
+            <div class="clean-text-body" id="cleanTextBody"></div>
+            <div class="pins-panel" id="pinsPanel">
+              <div class="pins-head">장표 핀 메모</div>
+              <div class="pins-list" id="pinsList"></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 로그인 오버레이 -->
+  <div class="login-overlay hidden" id="loginOverlay" role="dialog" aria-modal="true" aria-labelledby="loginHeading">
+    <form class="login-card" id="loginForm">
+      <div class="login-brand">
+        <span class="brand-badge">SPEC</span>
+        <h2 id="loginHeading">시방서 스마트 뷰어</h2>
+      </div>
+      <p class="login-desc">NRD-K2 제어(설비) 시방서 열람 및 다중 키워드 검색을 위해 로그인하세요.</p>
+      <label class="field-label" for="loginUser">아이디</label>
+      <input type="text" id="loginUser" required autocomplete="username" placeholder="아이디 입력">
+      <label class="field-label" for="loginPass">비밀번호</label>
+      <input type="password" id="loginPass" required autocomplete="current-password" placeholder="비밀번호 입력">
+      <div class="login-error hidden" id="loginError"></div>
+      <button type="submit" class="btn-primary btn-block" id="btnLoginSubmit">로그인</button>
+    </form>
+  </div>
+
+  <!-- 핀 메모 등록 다이얼로그 -->
+  <dialog class="app-dialog" id="pinDialog">
+    <div class="dialog-header">
+      <h3>장표 핀 메모 추가</h3>
+      <button type="button" class="btn-clear" data-close-dialog="pinDialog" aria-label="닫기">×</button>
+    </div>
+    <form id="pinForm" class="dialog-body">
+      <p class="dialog-hint" id="pinCoordHint">선택 좌표에 현장 확인 메모를 남깁니다.</p>
+      <label class="field-label" for="pinNoteInput">메모 내용</label>
+      <textarea id="pinNoteInput" rows="3" maxlength="500" required placeholder="예) 도압배관 보온재 두께 100mm 이상 현장 확인 필요"></textarea>
+    </form>
+    <div class="dialog-footer">
+      <button type="button" class="btn-ghost" data-close-dialog="pinDialog">취소</button>
+      <button type="submit" form="pinForm" class="btn-primary">핀 저장</button>
+    </div>
+  </dialog>
+
+  <!-- 관리자 센터 다이얼로그 (동기화 / 사용자 / 감사로그) -->
+  <dialog class="app-dialog app-dialog-wide" id="adminDialog">
+    <div class="dialog-header">
+      <h3>관리자 제어 센터</h3>
+      <button type="button" class="btn-clear" data-close-dialog="adminDialog" aria-label="닫기">×</button>
+    </div>
+    <div class="dialog-tabs">
+      <button type="button" class="admin-tab active" data-admin-tab="sync">Google Drive 동기화</button>
+      <button type="button" class="admin-tab" data-admin-tab="users">사용자 관리</button>
+      <button type="button" class="admin-tab" data-admin-tab="audit">보안 감사 로그</button>
+    </div>
+    <div class="dialog-body" id="adminBody">
+      <!-- 동기화 탭 -->
+      <div class="admin-pane" id="adminSyncPane">
+        <div class="sync-status-box" id="syncStatusBox">동기화 워커 상태를 불러오는 중…</div>
+        <div class="admin-btn-row">
+          <button type="button" class="btn-primary" id="btnTriggerSync">지금 동기화 실행</button>
+          <button type="button" class="btn-small" id="btnRefreshSync">상태 새로고침</button>
+          <button type="button" class="btn-small" id="btnTestAlert">n8n 알림 테스트</button>
+        </div>
+      </div>
+
+      <!-- 사용자 관리 탭 -->
+      <div class="admin-pane hidden" id="adminUsersPane">
+        <form class="user-create-form" id="createUserForm">
+          <input type="text" id="newUsername" placeholder="새 아이디" required minlength="2" maxlength="40">
+          <input type="password" id="newPassword" placeholder="비밀번호(6자+)" required minlength="6" maxlength="128">
+          <select id="newUserRole" aria-label="권한">
+            <option value="engineer">engineer (열람·메모)</option>
+            <option value="viewer">viewer (열람)</option>
+            <option value="admin">admin (관리자)</option>
+          </select>
+          <button type="submit" class="btn-primary">사용자 추가</button>
+        </form>
+        <div class="admin-list" id="adminUsersList"></div>
+      </div>
+
+      <!-- 감사 로그 탭 -->
+      <div class="admin-pane hidden" id="adminAuditPane">
+        <div class="admin-btn-row">
+          <select id="auditActionFilter" class="select-compact" aria-label="감사 작업 유형">
+            <option value="">전체 작업</option>
+            <option value="LOGIN_OK">LOGIN_OK</option>
+            <option value="LOGIN_FAILED">LOGIN_FAILED</option>
+            <option value="SYNC_APPLIED">SYNC_APPLIED</option>
+            <option value="SYNC_TRIGGER">SYNC_TRIGGER</option>
+            <option value="PIN_CREATE">PIN_CREATE</option>
+            <option value="USER_CREATE">USER_CREATE</option>
+          </select>
+          <button type="button" class="btn-small" id="btnRefreshAudit">새로고침</button>
+        </div>
+        <div class="admin-list" id="adminAuditList"></div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button type="button" class="btn-primary" data-close-dialog="adminDialog">닫기</button>
+    </div>
+  </dialog>
+
+  <!-- PWA 앱 설치 안내 다이얼로그 -->
+  <dialog class="app-dialog" id="pwaDialog">
+    <div class="dialog-header">
+      <h3>모바일·PC 앱 설치</h3>
+      <button type="button" class="btn-clear" data-close-dialog="pwaDialog" aria-label="닫기">×</button>
+    </div>
+    <div class="dialog-body">
+      <p class="dialog-hint">홈 화면에 추가하면 전체 화면 독립 창으로 빠르고 편리하게 시방서를 검색할 수 있습니다.</p>
+      <button type="button" class="btn-primary btn-block hidden" id="btnPromptInstallNow">원클릭 바로 설치하기</button>
+      <div class="pwa-guides">
+        <div class="pwa-guide-card">
+          <strong>Android · Chrome / Edge / 네이버 웨일</strong>
+          <p>브라우저 우측 상단 메뉴(⋮ 또는 ≡) → <b>"홈 화면에 추가"</b> 또는 <b>"앱 설치"</b> 선택</p>
+        </div>
+        <div class="pwa-guide-card">
+          <strong>Samsung 인터넷</strong>
+          <p>주소창 오른쪽 다운로드/더보기 아이콘 → <b>"현재 페이지 추가 → 홈 화면"</b> 선택</p>
+        </div>
+        <div class="pwa-guide-card">
+          <strong>iPhone · iPad (Safari)</strong>
+          <p>하단 <b>공유 아이콘(□↑)</b> 터치 → <b>"홈 화면에 추가"</b> → 우측 상단 <b>"추가"</b></p>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button type="button" class="btn-primary" data-close-dialog="pwaDialog">확인</button>
+    </div>
+  </dialog>
+
+  <!-- 새 기능 / 버전 릴리즈 노트 모달 (#modalWhatsNew) -->
+  <dialog class="app-dialog" id="modalWhatsNew">
+    <div class="dialog-header">
+      <h3 id="whatsNewTitle">시방서 스마트 뷰어 업데이트</h3>
+      <button type="button" class="btn-clear" data-close-dialog="modalWhatsNew" aria-label="닫기">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="version-meta" id="whatsNewMeta">v1.0.0</div>
+      <div class="features-list" id="whatsNewFeatures"></div>
+    </div>
+    <div class="dialog-footer">
+      <button type="button" class="btn-ghost" id="btnDismissWhatsNew">이 버전 다시 보지 않기</button>
+      <button type="button" class="btn-primary" data-close-dialog="modalWhatsNew">확인</button>
+    </div>
+  </dialog>
+
+  <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/static/app.js?v=1.0.0"></script>
+</body>
+</html>

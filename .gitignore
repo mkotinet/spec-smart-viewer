@@ -1,0 +1,21 @@
+# 절대 커밋 금지: 실제 대외비 시방서 PDF, 인덱스 DB, 렌더 이미지, 시크릿
+raw_specs/
+data/
+worker_state/
+dist/
+*.pdf
+*.PDF
+*.webp
+*.db
+*.db-wal
+*.db-shm
+*.tar.gz
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+graphify-out/
+.DS_Store
+desktop.ini
+!frontend/static/icons/*.png
