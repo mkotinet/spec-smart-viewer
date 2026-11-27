@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="/static/style.css?v=1.0.0">
+  <link rel="stylesheet" href="/static/style.css?v=1.1.0">
 </head>
 <body data-theme="dark">
   <!-- 상단 통합 검색 및 제어 바 -->
@@ -25,13 +25,21 @@
         </div>
       </div>
 
+      <!-- 상단바 접힘 상태 요약 칩 (메뉴 접었을 때 표시) -->
+      <div class="collapsed-summary hidden" id="collapsedSummary">
+        <span class="query-summary-chip" id="collapsedQueryBadge">전체 장표</span>
+        <button type="button" class="btn-small" id="btnQuickExpand" title="검색 및 필터 열기">🔍 검색창 펼치기</button>
+      </div>
+
       <div class="topbar-actions">
         <div class="mode-switch" role="group" aria-label="화면 보기 모드">
           <button type="button" class="btn-pill active" id="btnModeGrid">전체 장표</button>
           <button type="button" class="btn-pill" id="btnModeDetail">정밀 뷰어</button>
         </div>
+        <button type="button" class="btn-pill btn-collapse-toggle" id="btnToggleTopbar" title="상단 메뉴바 접기/펼치기 (Alt+H)" aria-label="상단 메뉴바 접기">▲ 메뉴 접기</button>
+        <button type="button" class="btn-pill btn-fullscreen-toggle" id="btnFullscreen" title="전체 화면 보기 (Alt+F)" aria-label="전체 화면 보기">⛶ 전체창</button>
         <button type="button" class="btn-icon" id="btnInstallPwa" title="앱 설치 안내">앱 설치</button>
-        <button type="button" class="btn-icon" id="btnWhatsNew" title="버전 및 새 기능">v1.0.0</button>
+        <button type="button" class="btn-icon" id="btnWhatsNew" title="버전 및 새 기능">v1.1.0</button>
         <button type="button" class="btn-icon" id="btnTheme" title="테마 전환" aria-label="테마 전환">테마</button>
         <button type="button" class="btn-icon hidden" id="btnAdminMenu">관리</button>
         <span class="user-pill hidden" id="userBadge"></span>
@@ -39,62 +47,68 @@
       </div>
     </div>
 
-    <div class="topbar-row search-row">
-      <form class="search-form" id="searchForm">
-        <div class="search-input-wrap">
-          <input
-            type="search"
-            id="searchInput"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="다중 키워드 검색: 예) 차압 보온, (엘보 | Elbow) Fitting, 케이블 -트레이, &quot;최소 100 mm&quot;"
-            aria-label="시방서 다중 키워드 검색어"
-          >
-          <button type="button" class="btn-clear hidden" id="btnClearSearch" title="검색어 초기화" aria-label="검색어 초기화">×</button>
+    <!-- 검색 및 필터 접이식 영역 -->
+    <div class="topbar-collapsible-body" id="topbarCollapsibleBody">
+      <div class="topbar-row search-row">
+        <form class="search-form" id="searchForm">
+          <div class="search-input-wrap">
+            <input
+              type="search"
+              id="searchInput"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="다중 키워드 검색: 예) 차압 보온, (엘보 | Elbow) Fitting, 케이블 -트레이, &quot;최소 100 mm&quot;"
+              aria-label="시방서 다중 키워드 검색어"
+            >
+            <button type="button" class="btn-clear hidden" id="btnClearSearch" title="검색어 초기화" aria-label="검색어 초기화">×</button>
+          </div>
+          <button type="submit" class="btn-primary" id="btnSearch">검색</button>
+        </form>
+
+        <div class="search-options">
+          <select id="scopeSelect" class="select-compact" aria-label="검색 조합 범위">
+            <option value="page">장표 내 조합</option>
+            <option value="doc">시방서 전체 교차</option>
+          </select>
+          <select id="pageTypeSelect" class="select-compact" aria-label="장표 성격 필터">
+            <option value="">모든 장표</option>
+            <option value="body">본문 조항</option>
+            <option value="diagram">도해·도면</option>
+            <option value="toc">목차</option>
+            <option value="history">제/개정 이력</option>
+            <option value="appendix">부속서</option>
+            <option value="cover">표지</option>
+          </select>
+          <button type="button" class="btn-toggle" id="btnBodyOnly" aria-pressed="false">본문만</button>
+          <button type="button" class="btn-toggle" id="btnFavOnly" aria-pressed="false">★ 즐겨찾기만</button>
+          <button type="button" class="btn-toggle active" id="btnToggleFilters" aria-pressed="true" title="키워드 칩 빌더 및 시방서 필터 접기/펼치기">상세 필터 ▴</button>
         </div>
-        <button type="submit" class="btn-primary" id="btnSearch">검색</button>
-      </form>
-
-      <div class="search-options">
-        <select id="scopeSelect" class="select-compact" aria-label="검색 조합 범위">
-          <option value="page">장표 내 조합</option>
-          <option value="doc">시방서 전체 교차</option>
-        </select>
-        <select id="pageTypeSelect" class="select-compact" aria-label="장표 성격 필터">
-          <option value="">모든 장표</option>
-          <option value="body">본문 조항</option>
-          <option value="diagram">도해·도면</option>
-          <option value="toc">목차</option>
-          <option value="history">제/개정 이력</option>
-          <option value="appendix">부속서</option>
-          <option value="cover">표지</option>
-        </select>
-        <button type="button" class="btn-toggle" id="btnBodyOnly" aria-pressed="false">본문만</button>
-        <button type="button" class="btn-toggle" id="btnFavOnly" aria-pressed="false">★ 즐겨찾기만</button>
       </div>
-    </div>
 
-    <!-- 시각적 다중 키워드 조합 칩 빌더 + 시방서 필터 -->
-    <div class="topbar-row builder-row">
-      <div class="kw-builder" id="kwBuilder">
-        <input
-          type="text"
-          id="kwQuickInput"
-          class="kw-quick-input"
-          autocomplete="off"
-          placeholder="키워드 추가 후 연산 선택…"
-          aria-label="조합 키워드 입력"
-        >
-        <button type="button" class="btn-chip-add op-and" data-op="and" title="공백 AND 추가">+ 필수(AND)</button>
-        <button type="button" class="btn-chip-add op-or" data-op="or" title="파이프(|) OR 추가">+ 선택(OR)</button>
-        <button type="button" class="btn-chip-add op-not" data-op="not" title="마이너스(-) 제외 추가">+ 제외(-)</button>
-        <button type="button" class="btn-chip-add op-phrase" data-op="phrase" title="큰따옴표 정확 구문 추가">+ 구문(" ")</button>
-        <div class="kw-chips-list" id="kwChipsList"></div>
+      <!-- 시각적 다중 키워드 조합 칩 빌더 + 시방서 필터 (접이식) -->
+      <div class="topbar-collapsible-filters" id="topbarCollapsibleFilters">
+        <div class="topbar-row builder-row">
+          <div class="kw-builder" id="kwBuilder">
+            <input
+              type="text"
+              id="kwQuickInput"
+              class="kw-quick-input"
+              autocomplete="off"
+              placeholder="키워드 추가 후 연산 선택…"
+              aria-label="조합 키워드 입력"
+            >
+            <button type="button" class="btn-chip-add op-and" data-op="and" title="공백 AND 추가">+ 필수(AND)</button>
+            <button type="button" class="btn-chip-add op-or" data-op="or" title="파이프(|) OR 추가">+ 선택(OR)</button>
+            <button type="button" class="btn-chip-add op-not" data-op="not" title="마이너스(-) 제외 추가">+ 제외(-)</button>
+            <button type="button" class="btn-chip-add op-phrase" data-op="phrase" title="큰따옴표 정확 구문 추가">+ 구문(" ")</button>
+            <div class="kw-chips-list" id="kwChipsList"></div>
+          </div>
+        </div>
+
+        <div class="topbar-row docs-filter-row">
+          <div class="doc-chips" id="docChips" aria-label="시방서 권별 필터"></div>
+        </div>
       </div>
-    </div>
-
-    <div class="topbar-row docs-filter-row">
-      <div class="doc-chips" id="docChips" aria-label="시방서 권별 필터"></div>
     </div>
   </header>
 
@@ -155,6 +169,7 @@
         <div class="stage-toolbar">
           <div class="stage-title-group">
             <button type="button" class="btn-small mobile-only" id="btnMobileBack">← 목록</button>
+            <button type="button" class="btn-small" id="btnToggleSidebar" title="사이드바 접기/펼치기 ([)">◀ 목록접기</button>
             <div class="stage-title" id="pageTitleHeader">장표를 선택하세요</div>
           </div>
 
@@ -173,6 +188,7 @@
             <button type="button" class="btn-toggle active" id="btnToggleText" aria-pressed="true">원문텍스트</button>
             <button type="button" class="btn-toggle" id="btnPinMode" aria-pressed="false">+ 핀메모</button>
             <button type="button" class="btn-toggle" id="btnFavToggle" aria-pressed="false">☆ 즐겨찾기</button>
+            <button type="button" class="btn-small btn-stage-fullscreen" id="btnStageFullscreen" title="장표 전체화면 (F)">⛶ 전체창</button>
             <a class="btn-small btn-link hidden" id="btnOpenPdf" target="_blank" rel="noopener">단일 PDF</a>
           </div>
         </div>
@@ -349,8 +365,11 @@
     </div>
   </dialog>
 
+  <!-- 플로팅 전체화면 종료 버튼 -->
+  <button type="button" class="btn-floating-exit-fullscreen hidden" id="btnExitFullscreen" title="전체화면 종료 (ESC)">✕ 전체창 해제 (ESC)</button>
+
   <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/static/app.js?v=1.0.0"></script>
+  <script src="/static/app.js?v=1.1.0"></script>
 </body>
 </html>

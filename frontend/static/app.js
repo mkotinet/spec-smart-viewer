@@ -14,6 +14,10 @@
     bodyOnly: false,
     favOnly: false,
     viewMode: "grid", // "grid" | "detail"
+    topbarCollapsed: localStorage.getItem("spec_topbar_collapsed") === "true",
+    filtersCollapsed: (window.innerWidth <= 900) || (localStorage.getItem("spec_filters_collapsed") === "true"),
+    sidebarCollapsed: false,
+    isFullscreen: false,
     page: 1,
     limit: 40,
     total: 0,
@@ -324,6 +328,14 @@
 
     renderGridCards();
     renderSideResults();
+
+    if (window.innerWidth <= 900 && state.query && !state.filtersCollapsed) {
+      state.filtersCollapsed = true;
+      updateFiltersState();
+    }
+    if (state.topbarCollapsed) {
+      updateTopbarState();
+    }
   }
 
   function renderGridCards() {
@@ -417,6 +429,86 @@
     if (!isGrid && state.activePage) {
       requestAnimationFrame(() => fitCanvas());
     }
+  }
+
+  function updateTopbarState() {
+    const isCol = !!state.topbarCollapsed;
+    $("topbar").classList.toggle("collapsed", isCol);
+    if ($("btnToggleTopbar")) {
+      $("btnToggleTopbar").textContent = isCol ? "▼ 메뉴 펼치기" : "▲ 메뉴 접기";
+      $("btnToggleTopbar").title = isCol ? "상단 메뉴바 펼치기 (Alt+H)" : "상단 메뉴바 접기 (Alt+H)";
+      $("btnToggleTopbar").setAttribute("aria-pressed", String(isCol));
+      $("btnToggleTopbar").classList.toggle("active", isCol);
+    }
+
+    if (isCol) {
+      $("collapsedSummary").classList.remove("hidden");
+      const summaryText = state.query ? `"${state.query}" (${state.total}건)` : `시방서 8종 (${state.total || 416}장)`;
+      $("collapsedQueryBadge").textContent = summaryText;
+    } else {
+      $("collapsedSummary").classList.add("hidden");
+    }
+
+    try { localStorage.setItem("spec_topbar_collapsed", String(isCol)); } catch (_e) {}
+    if (state.viewMode === "detail") {
+      requestAnimationFrame(() => fitCanvas());
+    }
+  }
+
+  function updateFiltersState() {
+    const isCol = !!state.filtersCollapsed;
+    $("topbarCollapsibleFilters").classList.toggle("collapsed", isCol);
+    if ($("btnToggleFilters")) {
+      $("btnToggleFilters").textContent = isCol ? "상세 필터 ▾" : "상세 필터 ▴";
+      $("btnToggleFilters").setAttribute("aria-pressed", String(!isCol));
+      $("btnToggleFilters").classList.toggle("active", !isCol);
+    }
+    try { localStorage.setItem("spec_filters_collapsed", String(isCol)); } catch (_e) {}
+    if (state.viewMode === "detail") {
+      requestAnimationFrame(() => fitCanvas());
+    }
+  }
+
+  function toggleFullscreen(force) {
+    const nextState = (typeof force === "boolean") ? force : !state.isFullscreen;
+    state.isFullscreen = nextState;
+    document.body.classList.toggle("zen-fullscreen", nextState);
+    $("btnExitFullscreen").classList.toggle("hidden", !nextState);
+
+    const label = nextState ? "⛶ 전체해제" : "⛶ 전체창";
+    if ($("btnFullscreen")) {
+      $("btnFullscreen").textContent = label;
+      $("btnFullscreen").classList.toggle("active", nextState);
+    }
+    if ($("btnStageFullscreen")) {
+      $("btnStageFullscreen").textContent = label;
+      $("btnStageFullscreen").classList.toggle("active", nextState);
+    }
+
+    if (nextState) {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => null);
+      }
+    } else {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => null);
+      }
+    }
+
+    requestAnimationFrame(() => fitCanvas());
+    showToast(nextState ? "전체창(Zen Mode) 활성화 (ESC로 복귀)" : "전체창 모드 해제");
+  }
+
+  function toggleSidebar(force) {
+    const nextState = (typeof force === "boolean") ? force : !state.sidebarCollapsed;
+    state.sidebarCollapsed = nextState;
+    $("sidebar").classList.toggle("collapsed", nextState);
+    if ($("btnToggleSidebar")) {
+      $("btnToggleSidebar").textContent = nextState ? "▶ 목록보기" : "◀ 목록접기";
+      $("btnToggleSidebar").title = nextState ? "검색목록/목차 사이드바 펼치기 ([)" : "사이드바 접기 ([)";
+      $("btnToggleSidebar").classList.toggle("active", nextState);
+    }
+    requestAnimationFrame(() => fitCanvas());
   }
 
   function switchSideTab(tabName) {
@@ -1045,6 +1137,75 @@
       $("detailView").classList.remove("mobile-stage-open");
     });
 
+    if ($("btnToggleTopbar")) {
+      $("btnToggleTopbar").addEventListener("click", () => {
+        state.topbarCollapsed = !state.topbarCollapsed;
+        updateTopbarState();
+      });
+    }
+    if ($("btnQuickExpand")) {
+      $("btnQuickExpand").addEventListener("click", () => {
+        state.topbarCollapsed = false;
+        updateTopbarState();
+      });
+    }
+    if ($("btnToggleFilters")) {
+      $("btnToggleFilters").addEventListener("click", () => {
+        state.filtersCollapsed = !state.filtersCollapsed;
+        updateFiltersState();
+      });
+    }
+    if ($("btnFullscreen")) {
+      $("btnFullscreen").addEventListener("click", () => toggleFullscreen());
+    }
+    if ($("btnStageFullscreen")) {
+      $("btnStageFullscreen").addEventListener("click", () => toggleFullscreen());
+    }
+    if ($("btnExitFullscreen")) {
+      $("btnExitFullscreen").addEventListener("click", () => toggleFullscreen(false));
+    }
+    if ($("btnToggleSidebar")) {
+      $("btnToggleSidebar").addEventListener("click", () => toggleSidebar());
+    }
+
+    document.addEventListener("fullscreenchange", () => {
+      if (!document.fullscreenElement && state.isFullscreen) {
+        toggleFullscreen(false);
+      }
+    });
+
+    window.addEventListener("keydown", (e) => {
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
+      const isInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+      if (e.key === "Escape") {
+        if (state.isFullscreen) {
+          toggleFullscreen(false);
+          e.preventDefault();
+        }
+        return;
+      }
+      if (isInput) return;
+
+      if ((e.altKey && (e.key === "h" || e.key === "H")) || (!e.ctrlKey && !e.metaKey && e.key === "h")) {
+        e.preventDefault();
+        state.topbarCollapsed = !state.topbarCollapsed;
+        updateTopbarState();
+      } else if ((e.altKey && (e.key === "f" || e.key === "F")) || (!e.ctrlKey && !e.metaKey && e.key === "f")) {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === "[") {
+        if (state.viewMode === "detail") {
+          e.preventDefault();
+          toggleSidebar();
+        }
+      } else if (e.key === "]") {
+        if (state.viewMode === "detail") {
+          e.preventDefault();
+          $("btnToggleText").click();
+        }
+      }
+    });
+
     $("btnBannerRefresh").addEventListener("click", () => {
       loadMetaAndDocs().then(() => runSearch(1));
     });
@@ -1301,5 +1462,7 @@
   setupPWA();
   setupCanvasGestures();
   bindEvents();
+  updateTopbarState();
+  updateFiltersState();
   bootstrapSession();
 })();

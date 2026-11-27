@@ -1,4 +1,4 @@
-const CACHE_VERSION = "1.0.0";
+const CACHE_VERSION = "1.1.0";
 const SHELL_CACHE = `ssv-shell-v${CACHE_VERSION}`;
 const MEDIA_CACHE = `ssv-media-v${CACHE_VERSION}`;
 const MAX_MEDIA_ENTRIES = 600;

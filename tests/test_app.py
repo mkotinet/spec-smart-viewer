@@ -222,7 +222,7 @@ def test_healthz_pwa_and_version(client: TestClient) -> None:
 
     v = client.get("/api/version")
     assert v.status_code == 200
-    assert v.json()["version"] == "1.0.0"
+    assert v.json()["version"] == "1.1.0"
     assert isinstance(v.json()["features"], list)
 
 
